@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Pakistan Literacy Map</title>
+    <meta
+      name="viewport"
+      content="initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <link
+      href="https://unpkg.com/maplibre-gl@^5.6.1/dist/maplibre-gl.css"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/maplibre-gl@^5.6.1/dist/maplibre-gl.js"></script>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="legend">
+      <h4>Literacy Index (0-50)</h4>
+      <div id="legend-content">
+        <div class="gradient-bar province" id="province-gradient"></div>
+        <div class="gradient-labels" id="province-labels">
+          <span>0</span><span>10</span><span>20</span><span>30</span
+          ><span>40</span><span>50</span>
+        </div>
+        <hr style="margin: 8px 0" />
+        <div
+          class="gradient-bar district"
+          id="district-gradient"
+          style="display: none"
+        ></div>
+        <div class="gradient-labels" id="district-labels" style="display: none">
+          <span>0</span><span>10</span><span>20</span><span>30</span
+          ><span>40</span><span>50</span>
+        </div>
+      </div>
+      <div
+        id="current-level"
+        style="font-size: 10px; color: #666; margin-top: 5px"
+      >
+        Showing: Provinces
+      </div>
+    </div>
+
+    <script>
+      const map = new maplibregl.Map({
+        container: "map",
+        // Or use a very minimal style
+        // style:
+        //   "https://api.maptiler.com/maps/backdrop/style.json?key=igrXkLlXdgSNZ3Du988L",
+        // // For satellite base
+        // style: 'https://api.maptiler.com/maps/satellite/style.json?key=igrXkLlXdgSNZ3Du988L',
+
+        style:
+          "https://api.maptiler.com/maps/basic/style.json?key=igrXkLlXdgSNZ3Du988L", // basic style map - fewer labels, cleaner look
+        // style:
+        //   "https://api.maptiler.com/maps/streets-v2/style.json?key=igrXkLlXdgSNZ3Du988L", // full style
+        center: [70.9, 30.9],
+        zoom: 5,
+      });
+
+      function clearHighlight() {
+        if (map.getLayer("highlight-line")) map.removeLayer("highlight-line");
+      }
+
+      // Function to update legend based on zoom level
+      function updateLegend() {
+        const zoom = map.getZoom();
+        const provinceGradient = document.getElementById("province-gradient");
+        const provinceLabels = document.getElementById("province-labels");
+        const districtGradient = document.getElementById("district-gradient");
+        const districtLabels = document.getElementById("district-labels");
+        const currentLevel = document.getElementById("current-level");
+
+        if (zoom < 7) {
+          // Show province legend
+          provinceGradient.style.display = "block";
+          provinceLabels.style.display = "flex";
+          districtGradient.style.display = "none";
+          districtLabels.style.display = "none";
+          currentLevel.textContent = "Showing: Provinces";
+        } else {
+          // Show district legend
+          provinceGradient.style.display = "none";
+          provinceLabels.style.display = "none";
+          districtGradient.style.display = "block";
+          districtLabels.style.display = "flex";
+          currentLevel.textContent = "Showing: Districts";
+        }
+      }
+
+      map.on("load", () => {
+        // load sources
+        map.addSource("pak_provinces", {
+          type: "geojson",
+          data: "pak_provinces.geojson",
+        });
+        map.addSource("pak_districts", {
+          type: "geojson",
+          data: "pak_districts.geojson",
+        });
+
+        // province fill visible when zoom < 7 - using blue color scheme
+        map.addLayer({
+          id: "prov-fill",
+          type: "fill",
+          source: "pak_provinces",
+          paint: {
+            // Blue color ramp for provinces (YlGnBu scheme) - adjusted for 0-50 range
+            "fill-color": [
+              "interpolate",
+              ["linear"],
+              ["get", "literacy"],
+              0,
+              "#ffffd9", // Very light yellow for lowest values (0)
+              8,
+              "#edf8b1", // Light yellow-green (8)
+              16,
+              "#c7e9b4", // Light green (16)
+              24,
+              "#7fcdbb", // Light blue-green (24)
+              32,
+              "#41b6c4", // Medium blue (32)
+              40,
+              "#2c7fb8", // Darker blue (40)
+              50,
+              "#253494", // Dark blue for highest values (50)
+            ],
+            "fill-opacity": 0.9,
+            "fill-outline-color": "#222",
+          },
+          minzoom: 0,
+          maxzoom: 7,
+        });
+
+        // district fill visible when zoom >= 7 - using orange color scheme
+        map.addLayer({
+          id: "dist-fill",
+          type: "fill",
+          source: "pak_districts",
+          paint: {
+            // Orange color ramp for districts (YlOrRd scheme) - adjusted for 0-50 range
+            "fill-color": [
+              "interpolate",
+              ["linear"],
+              ["get", "literacy"],
+              0,
+              "#ffffd9", // Very light yellow for lowest values (0)
+              8,
+              "#edf8b1", // Light yellow-green (8)
+              16,
+              "#c7e9b4", // Light green (16)
+              24,
+              "#7fcdbb", // Light blue-green (24)
+              32,
+              "#41b6c4", // Medium blue (32)
+              40,
+              "#2c7fb8", // Darker blue (40)
+              50,
+              "#253494", // Dark blue for highest values (50)
+            ],
+            "fill-opacity": 0.9,
+            "fill-outline-color": "#222",
+          },
+          minzoom: 7,
+        });
+
+        // Add stroke layers for better border definition
+        map.addLayer({
+          id: "prov-stroke",
+          type: "line",
+          source: "pak_provinces",
+          paint: {
+            "line-color": "#222",
+            "line-width": 1.5,
+          },
+          minzoom: 0,
+          maxzoom: 7,
+        });
+
+        map.addLayer({
+          id: "dist-stroke",
+          type: "line",
+          source: "pak_districts",
+          paint: {
+            "line-color": "#222",
+            "line-width": 1,
+          },
+          minzoom: 7,
+        });
+
+        // Update legend on initial load
+        updateLegend();
+
+        // Update legend when zoom changes
+        map.on("zoom", updateLegend);
+
+        // province click → popup & full‑province highlight
+        map.on("click", "prov-fill", (e) => {
+          clearHighlight();
+          const { ADM1_EN, literacy } = e.features[0].properties;
+          map.addLayer({
+            id: "highlight-line",
+            type: "line",
+            source: "pak_provinces",
+            filter: ["==", ["get", "ADM1_EN"], ADM1_EN],
+            paint: { "line-color": "#000", "line-width": 3 },
+          });
+          new maplibregl.Popup()
+            .setLngLat(e.lngLat)
+            .setHTML(
+              `<strong>Province: ${ADM1_EN}</strong><br>Literacy Index: ${literacy}`
+            )
+            .addTo(map);
+        });
+
+        // district click → popup & full‑district highlight
+        map.on("click", "dist-fill", (e) => {
+          clearHighlight();
+          const { ADM2_EN, literacy } = e.features[0].properties;
+          map.addLayer({
+            id: "highlight-line",
+            type: "line",
+            source: "pak_districts",
+            filter: ["==", ["get", "ADM2_EN"], ADM2_EN],
+            paint: { "line-color": "#000", "line-width": 2 },
+          });
+          new maplibregl.Popup()
+            .setLngLat(e.lngLat)
+            .setHTML(
+              `<strong>District: ${ADM2_EN}</strong><br>Literacy Index: ${literacy}`
+            )
+            .addTo(map);
+        });
+
+        // pointer cursor
+        ["prov-fill", "dist-fill"].forEach((layer) => {
+          map.on(
+            "mouseenter",
+            layer,
+            () => (map.getCanvas().style.cursor = "pointer")
+          );
+          map.on(
+            "mouseleave",
+            layer,
+            () => (map.getCanvas().style.cursor = "")
+          );
+        });
+      });
+    </script>
+  </body>
+</html>
