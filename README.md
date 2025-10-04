@@ -1,6 +1,6 @@
-# Pakistan Literacy Map (Practice Project)
+# Pakistan Literacy Map (Demo Project)
 
-This is a **map of Pakistan created in QGIS** to visualize the **literacy rate across regions**.  
+This is a map of Pakistan created using **MapLibre GL JS** and **MapTiler API** to visualize the **literacy rate across regions**.  
 The data used is **simulated** and for **practice purposes only** — it does not reflect official statistics.
 
 🔗 **View the interactive map here**:  
